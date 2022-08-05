@@ -70,8 +70,9 @@ class MultiHeadSelfAttention(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
         # dequantizer
-        self.qdeq = MulShift()
-        self.kdeq = MulShift()
+        self.deq = MulShift()
+        self.deq.scale.data = torch.tensor(1 / self.sqrt_d)
+
         self.vdeq = MulShift()
 
 
@@ -84,17 +85,16 @@ class MultiHeadSelfAttention(nn.Module):
 
         # low precision attn
         q = self.qq(q)
-        q = self.qdeq(q)
-
         k = self.kq(k)
-        k = self.kdeq(k)
-
         v = self.vq(v)
-        v = self.vdeq(v)
         
         # sparsification
-        score = torch.einsum("bhif, bhjf->bhij", q, k)/self.sqrt_d
+        score = torch.einsum("bhif, bhjf->bhij", q, k)
+        score = self.deq(score)
+
         score = F.softmax(score, dim=-1) #(b,h,n,n)
         attn = torch.einsum("bhij, bhjf->bihf", score, v) #(b,n,h,f//h)
+        attn = self.vdeq(attn)
+
         o = self.dropout(self.o(attn.flatten(2)))
         return o

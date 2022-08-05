@@ -67,10 +67,9 @@ class XformerFuser(object):
                 fv.linear.bias.data.div_(sv)
                 fo.linear.bias.data.div_(so)
 
-                # (tentative) update dequantizer scaler
-                msa.qdeq.scale = 1/msa.qq.scale
-                msa.kdeq.scale = 1/msa.kq.scale
-                msa.vdeq.scale = 1/msa.vq.scale
+                # update dequantizer scaler
+                msa.deq.scale = 1 / (msa.qq.scale * msa.kq.scale * msa.sqrt_d)
+                msa.vdeq.scale = 1 / msa.vq.scale
 
                 # replace the original module
                 setattr(msa, "q", fq)
@@ -78,7 +77,7 @@ class XformerFuser(object):
                 setattr(msa, "v", fv)
                 setattr(msa, "o", fo)
 
-                # delete the quant module
+                # delete the original quant module
                 setattr(msa, "qq", nn.Identity())
                 setattr(msa, "kq", nn.Identity())
                 setattr(msa, "vq", nn.Identity())
@@ -86,6 +85,6 @@ class XformerFuser(object):
                 # insert back
                 setattr(m, "msa", msa)
 
-        
         return fused_model
 
+    
