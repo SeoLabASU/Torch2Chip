@@ -8,7 +8,7 @@ RCF: Additive Power-of-Two Quantization: An Efficient Non-uniform Discretization
 import torch
 import torch.nn as nn
 from torch import Tensor
-from .q import RCFQuantUQ, STE
+from .q import RCFQuantUQ, RCFQuantSQ, STE
 from .base import QBaseConv2d, QBaseLinear, QBase
 
 class SAWB(QBase):
@@ -94,6 +94,38 @@ class RCF(QBase):
             input_q = input
         return input_q
 
+class RCFSQ(RCF):
+    def __init__(self, nbit: int, train_flag: bool = True, alpha: float = 10):
+        super(RCFSQ, self).__init__(nbit, train_flag, alpha)
+        self.register_parameter('alpha', nn.Parameter(torch.tensor(alpha)))
+        self.register_buffer("scale", torch.tensor(1.0))
+
+    def trainFunc(self, input: Tensor):
+        nlv = (2**(self.nbit-1) - 1)
+        self.scale = nlv / self.alpha.data
+
+        # quantization aware training
+        out = RCFQuantSQ.apply(input, self.alpha, self.nbit)
+        return out
+
+    def q(self, input:Tensor):
+        nlv = (2**(self.nbit-1) - 1)
+        input_q = input.mul(self.scale.data).round()
+
+        input_q = input_q.clamp(min=-nlv, max=nlv)
+        if self.dequantize:
+            input_q = input_q.div(self.scale)
+        return input_q
+    
+    def evalFunc(self, input: Tensor):
+        if self.qflag:
+            # input = input.clamp(max=self.alpha.data, min=-self.alpha.data)
+            input_q = self.q(input)
+        else:
+            input_q = input
+        return input_q
+
+
 class QConv2d(QBaseConv2d):
     def __init__(self, in_channels: int, out_channels: int, kernel_size: int, stride: int = 1, padding: int = 0, dilation: int = 1, groups: int = 1, bias: bool = True, wbit: int = 32, abit: int = 32, train_flag=True):
         super(QConv2d, self).__init__(in_channels, out_channels, kernel_size, stride, padding, dilation, groups, bias, wbit, abit, train_flag)
@@ -111,7 +143,8 @@ class QLinear(QBaseLinear):
 
         # quantizers
         self.wq = SAWB(self.wbit, train_flag=True, qmode="symm")
-        self.aq = RCF(self.abit, train_flag=True, alpha=10.0)
+        if abit < 32:
+            self.aq = RCF(self.abit, train_flag=True, alpha=10.0)
 
     def trainFunc(self, input):
         return super().trainFunc(input)

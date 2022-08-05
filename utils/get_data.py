@@ -5,6 +5,7 @@ import os
 import torch
 import torchvision.transforms as transforms
 from torchvision import datasets
+from .aug import CIFAR10Policy
 
 def get_loader(args):
     # Preparing data
@@ -14,6 +15,11 @@ def get_loader(args):
 
         train_xforms = [transforms.RandomHorizontalFlip(), 
                         transforms.RandomCrop(32, padding=4)]
+
+        # for ViT training
+        if 'vit' in args.model:
+            train_xforms.append(CIFAR10Policy())
+            
 
         train_xforms += [
             transforms.ToTensor(),

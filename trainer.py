@@ -9,6 +9,7 @@ import wandb
 import time
 from torch.optim.lr_scheduler import LambdaLR
 from utils.utils import accuracy, AverageMeter, print_table, lr_schedule, convert_secs2time, save_checkpoint
+from utils import LinearWarmupCosineAnnealingLR, LabelSmoothingCrossEntropyLoss
 
 class BaseTrainer(object):
     def __init__(self,
@@ -32,6 +33,8 @@ class BaseTrainer(object):
         # loss func
         if loss_type == "cross_entropy":
             self.criterion = torch.nn.CrossEntropyLoss().cuda()
+        elif loss_type == "ce_smooth":
+            self.criterion = LabelSmoothingCrossEntropyLoss(args.num_classes, smoothing=args.smoothing)
         elif loss_type == "mse":
             self.criterion = torch.nn.MSELoss().cuda()
         else:
@@ -46,7 +49,7 @@ class BaseTrainer(object):
         if args.lr_sch == "step":
             self.lr_scheduler = LambdaLR(self.optimizer, lr_lambda=[lr_schedule])
         elif args.lr_sch == "cos":
-            self.lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=self.args.epochs, eta_min=1e-5)
+            self.lr_scheduler = LinearWarmupCosineAnnealingLR(self.optimizer, args.warmup, max_epochs=args.epochs, warmup_start_lr=args.lr, eta_min=1e-5)
 
         
         if args.use_cuda:
@@ -156,7 +159,7 @@ class BaseTrainer(object):
                 losses.update(loss.mean().item(), inputs.size(0))
                 top1.update(prec1.item(), inputs.size(0))
                 top5.update(prec5.item(), inputs.size(0))
-
+                break
         self.logger_dict["valid_loss"] = losses.avg
         self.logger_dict["valid_top1"] = top1.avg
         self.logger_dict["valid_top5"] = top5.avg

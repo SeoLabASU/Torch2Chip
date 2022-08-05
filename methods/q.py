@@ -93,3 +93,28 @@ class RCFQuantUQ(torch.autograd.Function):
         sign = input.sign()
         grad_alpha = (grad_output*(sign*i + (input_q-input)*(1-i))).sum()
         return grad_input, grad_alpha, None
+
+class RCFQuantSQ(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, input, alpha, nbit):
+        # clamp
+        input = input.div(alpha)
+        input_c = input.clamp(max=1, min=-1)
+        scale = (2**(nbit-1) - 1)
+
+        # quant and de-quant
+        input_div = input_c.mul(scale)
+        input_q = input_div.round().div(scale)
+        
+        ctx.save_for_backward(input, input_q)
+        input_q = input_q.mul(alpha)
+        return input_q
+    
+    @staticmethod    
+    def backward(ctx, grad_output):
+        grad_input = grad_output.clone()             # grad for weights will not be clipped
+        input, input_q = ctx.saved_tensors
+        i = (input.abs()>1.).float()
+        sign = input.sign()
+        grad_alpha = (grad_output*(sign*i + (input_q-input)*(1-i))).sum()
+        return grad_input, grad_alpha, None

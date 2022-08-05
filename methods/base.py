@@ -2,6 +2,7 @@
 Base quantization layers
 """
 
+from turtle import forward
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -117,6 +118,8 @@ class QBaseLinear(nn.Linear):
         Inference mode
         """
         self.train_flag = False
+        self.register_buffer("qweight", torch.ones_like(self.weight))
+        self.register_buffer("fm_max", torch.tensor(0.))
     
     def forward(self, input:Tensor):
         wq = self.wq(self.weight)
@@ -134,8 +137,20 @@ class MulShift(nn.Module):
         self.fl = 0.
 
     def forward(self, input:Tensor):
-        out = input.mul(self.scale[None, :, None, None]).add(self.bias[None, :, None, None])
+        out = input.mul(self.scale).add(self.bias)
         out = out.mul(2**(-self.fl))
+        return out
+
+class MulQuant(nn.Module):
+    def __init__(self, nbit:int=4):
+        super(MulQuant, self).__init__()
+        self.register_buffer("scale", torch.tensor(1.0))
+        self.nbit = nbit
+        self.nlv = 2**(nbit-1) - 1
+
+    def forward(self, input:Tensor):
+        out = input.mul(self.scale).round()
+        out = out.clamp(min=-self.nlv, max=self.nlv)
         return out
 
 class ConvBNReLU(nn.Module):
@@ -160,3 +175,21 @@ class ConvBNReLU(nn.Module):
         x = self.scaler(x)
         x = self.relu(x)
         return x
+
+class LinearMulShift(nn.Module):
+    def __init__(self, in_features: int, out_features: int, wbit:int=32, abit:int=32, train_flag=True, qflag=False, obit:int=32):
+        super(LinearMulShift, self).__init__()
+
+        self.linear = QBaseLinear(in_features, out_features, True, wbit, abit, train_flag)
+        
+        # scaler and shifter
+        if qflag:
+            self.scaler = MulQuant(nbit=obit)
+        else:
+            self.scaler = MulShift()
+
+    def forward(self, input:Tensor):
+        x = self.linear(input)
+        x = self.scaler(x)
+        return x
+

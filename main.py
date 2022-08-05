@@ -1,12 +1,12 @@
 """
-CIFAR-VIT training
+DNN training
 """
 import os
 import logging
 import argparse
 import torch
 import models
-from t2c import T2C
+from t2c import T2C, XformerFuser
 from collections import OrderedDict
 from utils import get_loader, str2bool
 from trainer import BaseTrainer
@@ -20,11 +20,14 @@ parser.add_argument('--epochs', type=int, default=200, help='Number of epochs to
 parser.add_argument('--batch_size', default=128, type=int, metavar='N', help='mini-batch size (default: 64)')
 
 parser.add_argument('--weight-decay', default=1e-5, type=float, metavar='W', help='weight decay (default: 1e-4)', dest='weight_decay')
+parser.add_argument("--beta1", default=0.9, type=float)
+parser.add_argument("--beta2", default=0.999, type=float)
 parser.add_argument('--log_file', type=str, default=None, help='path to log file')
 
 # loss and gradient
 parser.add_argument('--loss_type', type=str, default='cross_entropy', help='loss func')
 parser.add_argument('--optimizer', type=str, default='sgd', help='optimizer')
+parser.add_argument("--smoothing", default=0.1, type=float)
 
 # precision
 parser.add_argument('--wbit', type=int, default=4, help='activation precision')
@@ -48,6 +51,15 @@ parser.add_argument("--entity", default=None, type=str)
 # Acceleration
 parser.add_argument('--ngpu', type=int, default=2, help='0 = CPU.')
 parser.add_argument('--workers', type=int, default=16,help='number of data loading workers (default: 2)')
+
+# transformer
+parser.add_argument("--patch", default=8, type=int)
+parser.add_argument("--num_layers", default=7, type=int)
+parser.add_argument("--head", default=12, type=int)
+parser.add_argument("--hidden", default=384, type=int)
+parser.add_argument("--mlp_hidden", default=384, type=int)
+parser.add_argument('--msabit', type=int, default=32, help='activation precision')
+parser.add_argument('--mlpbit', type=int, default=32, help='Weight precision')
 
 # Fine-tuning
 parser.add_argument('--fine_tune', dest='fine_tune', action='store_true',
@@ -81,7 +93,12 @@ def main():
     
     # model
     model_cfg = getattr(models, args.model)
-    model_cfg.kwargs.update({"num_classes": num_classes, "wbit": args.wbit, "abit":args.abit})
+    
+    if "vit" in args.model:
+        model_cfg.kwargs.update({"num_classes": num_classes, "img_size": img_size, "msabit":args.msabit, "mlpbit":args.mlpbit})
+    else:
+        model_cfg.kwargs.update({"num_classes": num_classes, "wbit": args.wbit, "abit":args.abit})
+
     model = model_cfg.base(*model_cfg.args, **model_cfg.kwargs) 
     logger.info(model)
 
@@ -94,7 +111,7 @@ def main():
         logger.info("=> loading checkpoint...")
         
         for k, v in sdict.items():
-            name = k[7:]   
+            name = k 
             new_state_dict[name] = v
         
         state_tmp = model.state_dict()
@@ -113,18 +130,19 @@ def main():
     )
 
     if args.evaluate:
-        trainer.valid_epoch()
-        print("Test accuracy = {:.3f}".format(trainer.logger_dict["valid_top1"]))
-        
-        # T2C
-        nn2c = T2C(model, swl=16, sfl=13, args=args)
-        qnn = nn2c.nn2chip()
+        # trainer.valid_epoch()
+        # print("Test accuracy = {:.3f}".format(trainer.logger_dict["valid_top1"]))
 
-        # update model
-        setattr(trainer, "model", qnn)
+        fuser = XformerFuser(model)
+        fused_model = fuser.encoder_fuser()
+        fuser.inference(fused_model)
+
+        print("\n")
+        print(fused_model)
+        setattr(trainer, "model", fused_model)
         trainer.valid_epoch()
-        print("T2C: Test accuracy = {:.3f}".format(trainer.logger_dict["valid_top1"]))
-        nn2c.get_info(qnn)
+        print("After fusion: Test accuracy = {:.3f}".format(trainer.logger_dict["valid_top1"]))
+        
         exit()
 
     # start training
