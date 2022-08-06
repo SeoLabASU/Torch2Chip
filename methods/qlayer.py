@@ -144,7 +144,7 @@ class QLinear(QBaseLinear):
         # quantizers
         self.wq = SAWB(self.wbit, train_flag=True, qmode="symm")
         if abit < 32:
-            self.aq = RCF(self.abit, train_flag=True, alpha=10.0)
+            self.aq = RCFSQ(self.abit, train_flag=True, alpha=10.0)
 
     def trainFunc(self, input):
         return super().trainFunc(input)

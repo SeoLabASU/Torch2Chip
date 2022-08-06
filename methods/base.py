@@ -2,7 +2,6 @@
 Base quantization layers
 """
 
-from turtle import forward
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -124,6 +123,11 @@ class QBaseLinear(nn.Linear):
     def forward(self, input:Tensor):
         wq = self.wq(self.weight)
         xq = self.aq(input)
+        
+        # save integer weights
+        if not self.train_flag:
+            self.qweight.data = wq
+
         y = F.linear(xq, wq, self.bias)
         return y
 
@@ -145,6 +149,7 @@ class MulQuant(nn.Module):
     def __init__(self, nbit:int=4):
         super(MulQuant, self).__init__()
         self.register_buffer("scale", torch.tensor(1.0))
+        self.register_buffer("bias", torch.tensor(0.0))
         self.nbit = nbit
         self.nlv = 2**(nbit-1) - 1
 

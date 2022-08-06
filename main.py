@@ -130,15 +130,15 @@ def main():
     )
 
     if args.evaluate:
-        # trainer.valid_epoch()
-        # print("Test accuracy = {:.3f}".format(trainer.logger_dict["valid_top1"]))
+        trainer.valid_epoch()
+        print("Test accuracy = {:.3f}".format(trainer.logger_dict["valid_top1"]))
 
         fuser = XformerFuser(model)
         fused_model = fuser.encoder_fuser()
         fuser.inference(fused_model)
 
         print("\n")
-        print(fused_model)
+        # print(fused_model)
         setattr(trainer, "model", fused_model)
         trainer.valid_epoch()
         print("After fusion: Test accuracy = {:.3f}".format(trainer.logger_dict["valid_top1"]))

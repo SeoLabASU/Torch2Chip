@@ -26,9 +26,10 @@ class XformerFuser(object):
         Switch to inference mode
         """
         for n, m in model.named_modules():
-            if hasattr(m, "inference"):
-                if not ('qq' in n or 'kq' in n or 'vq' in n):
-                    m.inference()
+            if "msa" in n:
+                if hasattr(m, "inference"):
+                    if not ('qq' in n or 'kq' in n or 'vq' in n or 'oq' in n):
+                        m.inference()
 
     def fused_linear(self, linear:QBaseLinear, qflag:bool=True, obit:int=32):
         f = LinearMulShift(linear.in_features, linear.out_features, 
@@ -53,7 +54,7 @@ class XformerFuser(object):
                 sq = 1 / (msa.q.wq.scale.data*msa.aq.scale.data)
                 sk = 1 / (msa.k.wq.scale.data*msa.aq.scale.data)
                 sv = 1 / (msa.v.wq.scale.data*msa.aq.scale.data)
-                so = 1 / (msa.o.wq.scale.data)
+                so = 1 / (msa.o.wq.scale.data*msa.oq.scale.data)
 
                 # update scalers
                 fq.scaler.scale = sq * msa.qq.scale
@@ -69,7 +70,7 @@ class XformerFuser(object):
 
                 # update dequantizer scaler
                 msa.deq.scale = 1 / (msa.qq.scale * msa.kq.scale * msa.sqrt_d)
-                msa.vdeq.scale = 1 / msa.vq.scale
+                msa.vdeq.scale = (1 / msa.vq.scale) * msa.oq.scale
 
                 # replace the original module
                 setattr(msa, "q", fq)
@@ -77,10 +78,14 @@ class XformerFuser(object):
                 setattr(msa, "v", fv)
                 setattr(msa, "o", fo)
 
+                # integer only multiplication of o
+                msa.o.linear.aq = nn.Identity()
+
                 # delete the original quant module
                 setattr(msa, "qq", nn.Identity())
                 setattr(msa, "kq", nn.Identity())
                 setattr(msa, "vq", nn.Identity())
+                setattr(msa, "oq", nn.Identity())
 
                 # insert back
                 setattr(m, "msa", msa)

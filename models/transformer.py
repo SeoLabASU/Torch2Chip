@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from methods import RCFSQ, QLinear, MulShift
+from methods.base import MulQuant
 
 class TransformerEncoder(nn.Module):
     def __init__(self, feats:int, mlp_hidden:int, head:int=8, dropout:float=0., msabit:int=4, mlpbit:int=8):
@@ -15,22 +16,27 @@ class TransformerEncoder(nn.Module):
         self.la2 = nn.LayerNorm(feats)
         
         # quantizer
-        self.aq = nn.Identity()
+        if mlpbit < 32:
+            self.aq1 = RCFSQ(nbit=mlpbit, alpha=10.0)
+            self.aq2 = RCFSQ(nbit=mlpbit, alpha=10.0)
+        else:
+            self.aq1 = nn.Identity()
+            self.aq2 = nn.Identity()
 
         self.mlp = nn.Sequential(
-            nn.Linear(feats, mlp_hidden),
+            QLinear(feats, mlp_hidden, wbit=mlpbit, abit=32),
             nn.ReLU(),
             nn.Dropout(dropout),
-            nn.Linear(mlp_hidden, feats),
+            QLinear(mlp_hidden, feats, wbit=mlpbit, abit=mlpbit),
             nn.ReLU(),
             nn.Dropout(dropout),
         )
 
     def forward(self, x):
-        xq = self.aq(x)
+        xq = self.aq1(x)
         out = self.msa(self.la1(xq)) + xq
-
-        outq = self.aq(out)
+        
+        outq = self.aq2(out)
         out = self.mlp(self.la2(outq)) + outq
         return out
 
@@ -41,18 +47,21 @@ class MultiHeadSelfAttention(nn.Module):
         self.head = head
         self.feats = feats
         self.sqrt_d = self.feats**0.5
+        self.wbit = wbit
 
         if wbit < 32:
             self.aq = RCFSQ(nbit=abit, train_flag=True, alpha=8.0)
             self.qq = RCFSQ(nbit=abit, train_flag=True, alpha=2.0)
             self.kq = RCFSQ(nbit=abit, train_flag=True, alpha=2.0)
             self.vq = RCFSQ(nbit=abit, train_flag=True, alpha=2.0)
+            self.oq = RCFSQ(nbit=abit, train_flag=True, alpha=2.0)
 
             self.q = QLinear(feats, feats, wbit=wbit, abit=32)
             self.k = QLinear(feats, feats, wbit=wbit, abit=32)
             self.v = QLinear(feats, feats, wbit=wbit, abit=32)
 
-            self.o = QLinear(feats, feats, wbit=wbit)
+            # low precision layer for o
+            self.o = QLinear(feats, feats, wbit=wbit, abit=32)
         else:
 
             self.aq = nn.Identity()
@@ -75,6 +84,8 @@ class MultiHeadSelfAttention(nn.Module):
 
         self.vdeq = MulShift()
 
+    def inference(self):
+        self.vdeq = MulQuant(nbit=self.wbit)
 
     def forward(self, x):
         b, n, f = x.size()
@@ -88,13 +99,14 @@ class MultiHeadSelfAttention(nn.Module):
         k = self.kq(k)
         v = self.vq(v)
         
-        # sparsification
+        # score
         score = torch.einsum("bhif, bhjf->bhij", q, k)
         score = self.deq(score)
-
         score = F.softmax(score, dim=-1) #(b,h,n,n)
+        
         attn = torch.einsum("bhij, bhjf->bihf", score, v) #(b,n,h,f//h)
         attn = self.vdeq(attn)
+        attn = self.oq(attn)
 
         o = self.dropout(self.o(attn.flatten(2)))
         return o
