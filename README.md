@@ -8,25 +8,25 @@ A library of tool for Pytorch-based deep neural network (DNN) compression and th
 
 ## Outline
 
-- **Layers**
-  - Customized quantization method
-    - QBase
-  - Customized quantization layer
-    - QBaseConv2d
-    - QBaseLinear
-- **Model Training**
-  - Trainers
-- **Post-training model conversion**
-  - Quantization scaling
-  - BatchNorm scaling and shifting
-  - Fuse the normalization parameters in to scalers and bias
-    - MulShift
-    - MulQuant
-    - LayerFuser
-    - XFormerFuser
-  - T2C: Integer-only parameter conversion and parameter extraction
-- **Notes for transformer**
-- **Usage and requirements**
+- **[Layers](https://github.com/mengjian0502/Torch2Chip/tree/transformer#layers)**
+  - [Customized quantization method](https://github.com/mengjian0502/Torch2Chip/tree/transformer#customized-quantization-method)
+    - [QBase](https://github.com/mengjian0502/Torch2Chip/tree/transformer#qbase-source-code)
+  - [Customized quantization layer](https://github.com/mengjian0502/Torch2Chip/tree/transformer#customized-quantization-layers)
+    - [QBaseConv2d](https://github.com/mengjian0502/Torch2Chip/tree/transformer#qbaseconv2d-source-code)
+    - [QBaseLinear](https://github.com/mengjian0502/Torch2Chip/tree/transformer#qbaselinear-source-code)
+- **[Model Training](https://github.com/mengjian0502/Torch2Chip/tree/transformer#model-training)**
+  - [Base Trainer](https://github.com/mengjian0502/Torch2Chip/tree/transformer#basetrainer-source-code)
+- **[Post-training model conversion](https://github.com/mengjian0502/Torch2Chip/tree/transformer#post-training-model-conversion)**
+  - [Quantization scaling](https://github.com/mengjian0502/Torch2Chip/tree/transformer#quantization-scaling)
+  - [BatchNorm scaling and shifting](https://github.com/mengjian0502/Torch2Chip/tree/transformer#batchnorm-scaling)
+  - [Fuse the normalization parameters in to scalers and bias](https://github.com/mengjian0502/Torch2Chip/tree/transformer#fuse-the-normalization-parameters-in-to-scalers-and-bias)
+    - [MulShift](https://github.com/mengjian0502/Torch2Chip/tree/transformer#mulshift-source-code)
+    - [MulQuant](https://github.com/mengjian0502/Torch2Chip/tree/transformer#mulquant-source-code)
+    - [LayerFuser](https://github.com/mengjian0502/Torch2Chip/tree/transformer#layerfuser-source-code)
+    - [XFormerFuser](https://github.com/mengjian0502/Torch2Chip/tree/transformer#xformerfuser-source-code)
+  - [T2C: Integer-only parameter conversion and parameter extraction](https://github.com/mengjian0502/Torch2Chip/tree/transformer#t2c-integer-only-parameter-conversion-and-parameter-extraction)
+- **[Notes for transformer](https://github.com/mengjian0502/Torch2Chip/tree/transformer#notes-for-transformer)**
+- **[Usage and requirements](https://github.com/mengjian0502/Torch2Chip/tree/transformer#usage-and-requirements)**
 
 ## Layers
 
