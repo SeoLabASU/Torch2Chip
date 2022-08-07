@@ -2,12 +2,13 @@
 Torch to chip
 """
 
+import os
 import numpy as np 
 import torch
 import copy
 import torch.nn as nn
 from torch import Tensor
-from methods import MulShift
+from methods import MulShift, MulQuant
 from fxpmath import Fxp
 
 class T2C(object):
@@ -53,7 +54,7 @@ class T2C(object):
         """
         qnn = copy.deepcopy(model)
         for n, m in qnn.named_modules():
-            if isinstance(m, MulShift):
+            if isinstance(m, (MulShift, MulQuant)):
                 m.fl = self.sfl
                 scale = m.scale.cpu().numpy()
                 bias = m.bias.cpu().numpy()
@@ -82,7 +83,8 @@ class T2C(object):
         state = self.model.state_dict()
         if save_model:
             filename = "t2c_model.pth.tar"
-            torch.save(state, self.arg.ssave_path+filename)
+            path = os.path.join(self.args.save_path, filename)
+            torch.save(state, path)
         return self.model
             
             

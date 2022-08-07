@@ -135,17 +135,17 @@ def main():
 
     if args.evaluate:
         trainer.valid_epoch()
-        print("Test accuracy = {:.3f}".format(trainer.logger_dict["valid_top1"]))
+        logger.info("Test accuracy = {:.3f}".format(trainer.logger_dict["valid_top1"]))
 
         # T2C
         nn2c = T2C(model, fuser=XformerFuser, swl=args.wl, sfl=args.fl, args=args)
-        qnn = nn2c.nn2chip()
+        qnn = nn2c.nn2chip(save_model=True)
 
-        print("\n")
-        print(qnn)
+        logger.info("\n")
+        logger.info(qnn)
         setattr(trainer, "model", qnn)
         trainer.valid_epoch()
-        print("After fusion: Test accuracy = {:.3f}".format(trainer.logger_dict["valid_top1"]))
+        logger.info("After fusion: Test accuracy = {:.3f}".format(trainer.logger_dict["valid_top1"]))
         nn2c.get_info(qnn)
 
         exit()

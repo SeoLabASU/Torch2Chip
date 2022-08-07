@@ -9,11 +9,14 @@ from models import TransformerEncoder
 from methods import LinearMulShift, LinearMulShiftReLU, QBaseLinear, MulQuant
 
 class XformerFuser(object):
+    """
+    Applies layer fusion for vision transformer (ViT)
+
+    Args:
+    - model: nn.Module, Pre-trained low-precision vision transformer
+    """
     def __init__(self, model:nn.Module):
         self.model = model
-        
-        # flag
-        self.flag = False
     
     def inference(self, model:nn.Module):
         """
