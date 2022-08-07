@@ -8,7 +8,6 @@ import copy
 import torch.nn as nn
 from torch import Tensor
 from methods import MulShift
-from .fuser import LayerFuser
 from fxpmath import Fxp
 
 class T2C(object):
@@ -21,16 +20,17 @@ class T2C(object):
 
     Args:
     - model: Pretrained DNN model (after fusion)
+    - fuser: Model fuser (For CNN or Transformer)
     - swl: World length of the high precision scaling/shifting factor
     - swl: Fractional bits the high precision scaling/shifting factor
     """
-    def __init__(self, model:nn.Module, swl:int, sfl:int, args):
+    def __init__(self, model:nn.Module, fuser, swl:int, sfl:int, args):
         self.swl = swl
         self.sfl = sfl
         self.args = args
 
         # model fusion
-        fuser = LayerFuser(model)
+        fuser = fuser(model)
         fuser.layers()
         fused_model = fuser.fuse()
         fuser.inference(fused_model)

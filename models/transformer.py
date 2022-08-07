@@ -5,8 +5,8 @@ transformer
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch import Tensor
 from methods import RCFSQ, QLinear, MulShift
-from methods.base import MulQuant
 
 class TransformerEncoder(nn.Module):
     def __init__(self, feats:int, mlp_hidden:int, head:int=8, dropout:float=0., msabit:int=4, mlpbit:int=8):
@@ -27,17 +27,20 @@ class TransformerEncoder(nn.Module):
             QLinear(feats, mlp_hidden, wbit=mlpbit, abit=32),
             nn.ReLU(),
             nn.Dropout(dropout),
-            QLinear(mlp_hidden, feats, wbit=mlpbit, abit=mlpbit),
+            QLinear(mlp_hidden, feats, wbit=mlpbit, abit=mlpbit, relu=True),
             nn.ReLU(),
             nn.Dropout(dropout),
         )
 
     def forward(self, x):
-        xq = self.aq1(x)
-        out = self.msa(self.la1(xq)) + xq
+        xn = self.la1(x)
+        xq = self.aq1(xn)
+        out = self.msa(xq) + x
+
+        outn = self.la2(out)
+        outq = self.aq2(outn)
         
-        outq = self.aq2(out)
-        out = self.mlp(self.la2(outq)) + outq
+        out = self.mlp(outq) + out
         return out
 
 
@@ -81,11 +84,7 @@ class MultiHeadSelfAttention(nn.Module):
         # dequantizer
         self.deq = MulShift()
         self.deq.scale.data = torch.tensor(1 / self.sqrt_d)
-
         self.vdeq = MulShift()
-
-    def inference(self):
-        self.vdeq = MulQuant(nbit=self.wbit)
 
     def forward(self, x):
         b, n, f = x.size()

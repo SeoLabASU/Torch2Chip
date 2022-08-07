@@ -120,15 +120,27 @@ class QBaseLinear(nn.Linear):
         self.register_buffer("qweight", torch.ones_like(self.weight))
         self.register_buffer("fm_max", torch.tensor(0.))
     
+    def get_fm_info(self, y:Tensor):
+        # maximum bit length
+        mb = len(bin(int(y.abs().max().item()))) - 2
+        # fm = mb * y.size(1) * y.size(2)
+        fm = mb
+        
+        # maximum featuremap size
+        if fm > self.fm_max:
+            self.fm_max.data = torch.tensor(fm).float()
+    
     def forward(self, input:Tensor):
         wq = self.wq(self.weight)
         xq = self.aq(input)
         
+        y = F.linear(xq, wq, self.bias)
+
         # save integer weights
         if not self.train_flag:
             self.qweight.data = wq
+            self.get_fm_info(y)
 
-        y = F.linear(xq, wq, self.bias)
         return y
 
 class MulShift(nn.Module):
@@ -153,8 +165,13 @@ class MulQuant(nn.Module):
         self.nbit = nbit
         self.nlv = 2**(nbit-1) - 1
 
+        # fractional bit width
+        self.fl = 0.
+
     def forward(self, input:Tensor):
-        out = input.mul(self.scale).round()
+        out = input.mul(self.scale)
+        out = out.mul(2**(-self.fl)).round()
+
         out = out.clamp(min=-self.nlv, max=self.nlv)
         return out
 
@@ -198,3 +215,24 @@ class LinearMulShift(nn.Module):
         x = self.scaler(x)
         return x
 
+
+class LinearMulShiftReLU(nn.Module):
+    def __init__(self, in_features: int, out_features: int, wbit:int=32, abit:int=32, train_flag=True, qflag=False, obit:int=32):
+        super(LinearMulShiftReLU, self).__init__()
+
+        self.linear = QBaseLinear(in_features, out_features, True, wbit, abit, train_flag)
+        
+        # scaler and shifter
+        if qflag:
+            self.scaler = MulQuant(nbit=obit)
+        else:
+            self.scaler = MulShift()
+
+        # relu
+        self.relu = nn.ReLU()
+
+    def forward(self, input:Tensor):
+        x = self.linear(input)
+        x = self.relu(x)
+        x = self.scaler(x)
+        return x

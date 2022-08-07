@@ -33,6 +33,10 @@ parser.add_argument("--smoothing", default=0.1, type=float)
 parser.add_argument('--wbit', type=int, default=4, help='activation precision')
 parser.add_argument('--abit', type=int, default=4, help='Weight precision')
 
+# for inference
+parser.add_argument('--wl', type=int, default=16, help='word length of scale and bias')
+parser.add_argument('--fl', type=int, default=14, help='fractional bits of scale and bias')
+
 # dataset
 parser.add_argument('--dataset', type=str, default='cifar10', help='dataset: CIFAR10 / ImageNet_1k')
 parser.add_argument('--data_path', type=str, default='./data/', help='data directory')
@@ -133,16 +137,17 @@ def main():
         trainer.valid_epoch()
         print("Test accuracy = {:.3f}".format(trainer.logger_dict["valid_top1"]))
 
-        fuser = XformerFuser(model)
-        fused_model = fuser.encoder_fuser()
-        fuser.inference(fused_model)
+        # T2C
+        nn2c = T2C(model, fuser=XformerFuser, swl=args.wl, sfl=args.fl, args=args)
+        qnn = nn2c.nn2chip()
 
         print("\n")
-        # print(fused_model)
-        setattr(trainer, "model", fused_model)
+        print(qnn)
+        setattr(trainer, "model", qnn)
         trainer.valid_epoch()
         print("After fusion: Test accuracy = {:.3f}".format(trainer.logger_dict["valid_top1"]))
-        
+        nn2c.get_info(qnn)
+
         exit()
 
     # start training

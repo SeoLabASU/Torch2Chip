@@ -138,13 +138,16 @@ class QConv2d(QBaseConv2d):
         return super().trainFunc(input)
 
 class QLinear(QBaseLinear):
-    def __init__(self, in_features: int, out_features: int, bias: bool = True, wbit: int = 32, abit: int = 32, train_flag=True):
+    def __init__(self, in_features: int, out_features: int, bias: bool = True, wbit: int = 32, abit: int = 32, train_flag=True, relu=False):
         super(QLinear, self).__init__(in_features, out_features, bias, wbit, abit, train_flag)
 
         # quantizers
         self.wq = SAWB(self.wbit, train_flag=True, qmode="symm")
         if abit < 32:
-            self.aq = RCFSQ(self.abit, train_flag=True, alpha=10.0)
+            if relu:
+                self.aq = RCF(self.abit, train_flag=True, alpha=10.0)
+            else:
+                self.aq = RCFSQ(self.abit, train_flag=True, alpha=10.0)
 
     def trainFunc(self, input):
         return super().trainFunc(input)

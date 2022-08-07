@@ -9,6 +9,8 @@ export CUDA_VISIBLE_DEVICES=1
 model=vit7
 msabit=4
 mlpbit=8
+wl=16
+fl=14
 epochs=200
 batch_size=128
 lr=1e-4
@@ -21,10 +23,10 @@ hidden=384
 mlp_hidden=384
 
 dataset="cifar10"
-save_path="../save/qViT_msa4bit_mlp8bit/cifar10/VIT7__lr1e-4_batch128_ce_smoothloss_relu_run2/eval/"
+save_path="../save/qViT_msa4bit_mlp8bit/cifar10/VIT7__lr5e-4_batch128_ce_smoothloss_relu_run4/eval/"
 log_file="vit_training.log"
 name="vit_training_${dataset}"
-pretrained_model="../save/qViT_msa4bit_mlp8bit/cifar10/VIT7__lr1e-4_batch128_ce_smoothloss_relu_run2/model_best.pth.tar"
+pretrained_model="../save/qViT_msa4bit_mlp8bit/cifar10/VIT7__lr5e-4_batch128_ce_smoothloss_relu_run4/model_best.pth.tar"
 
 $PYTHON -W ignore ../main.py \
     --model ${model} \
@@ -39,6 +41,8 @@ $PYTHON -W ignore ../main.py \
     --hidden ${hidden} \
     --msabit ${msabit} \
     --mlpbit ${mlpbit} \
+    --wl ${wl} \
+    --fl ${fl} \
     --mlp_hidden ${mlp_hidden} \
     --optimizer adam \
     --wandb False \
