@@ -137,6 +137,7 @@ class XformerFuser(object):
                             # switch mode
                             k.aq.inference()                        
                             k.wq.inference()
+                            k.inference()
                             
                             setattr(k, "aq", nn.Identity())
 
