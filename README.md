@@ -1,5 +1,3 @@
-# Torch2Chip
-Torch2Chip: End-to-end Pytorch-based low precision model for hardware deployment
 # Torch2Chip: End-to-end Pytorch-based tool for DNN hardware deployment (Beta)
 
 [Jian Meng](https://mengjian0502.github.io/) @ [SeoLab](https://faculty.engineering.asu.edu/jseo/) of Arizona State University
