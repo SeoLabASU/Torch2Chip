@@ -134,12 +134,12 @@ def main():
     )
 
     if args.evaluate:
-        trainer.valid_epoch()
-        logger.info("Test accuracy = {:.3f}".format(trainer.logger_dict["valid_top1"]))
+        # trainer.valid_epoch()
+        # logger.info("Test accuracy = {:.3f}".format(trainer.logger_dict["valid_top1"]))
 
         # T2C
         nn2c = T2C(model, fuser=XformerFuser, swl=args.wl, sfl=args.fl, args=args)
-        qnn = nn2c.nn2chip(save_model=True)
+        qnn = nn2c.nn2chip()
 
         logger.info("\n")
         logger.info(qnn)
@@ -147,6 +147,12 @@ def main():
         trainer.valid_epoch()
         logger.info("After fusion: Test accuracy = {:.3f}".format(trainer.logger_dict["valid_top1"]))
         nn2c.get_info(qnn)
+        
+        # save model
+        state = qnn.state_dict()
+        filename = "t2c_model.pth.tar"
+        path = os.path.join(args.save_path, filename)
+        torch.save(state, path)
 
         exit()
 

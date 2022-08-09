@@ -79,12 +79,7 @@ class T2C(object):
         print("Number of weight parameters = {}".format(int(nparams)))
         print("Maximum feature map size = {} bit".format(max(fm_size)))
 
-    def nn2chip(self, save_model:bool=False):
-        state = self.model.state_dict()
-        if save_model:
-            filename = "t2c_model.pth.tar"
-            path = os.path.join(self.args.save_path, filename)
-            torch.save(state, path)
+    def nn2chip(self):
         return self.model
             
             
