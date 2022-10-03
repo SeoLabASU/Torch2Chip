@@ -6,33 +6,45 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from methods import RCFSQ, QLinear, MulShift
+from .running_norm import LayerRunNorm
 
 class TransformerEncoder(nn.Module):
     def __init__(self, feats:int, mlp_hidden:int, head:int=8, dropout:float=0., msabit:int=4, mlpbit:int=8):
         super(TransformerEncoder, self).__init__()
-        self.la1 = nn.LayerNorm(feats)
+        self.la1 = LayerRunNorm(feats, momentum=0.1)
         self.msa = MultiHeadSelfAttention(feats, head=head, dropout=dropout, wbit=msabit, abit=msabit)
-        self.la2 = nn.LayerNorm(feats)
+        self.la2 = LayerRunNorm(feats, momentum=0.1)
         
         # quantizer
         if mlpbit < 32:
             self.aq1 = RCFSQ(nbit=mlpbit, alpha=10.0)
             self.aq2 = RCFSQ(nbit=mlpbit, alpha=10.0)
+
+            self.mlp = nn.Sequential(
+                QLinear(feats, mlp_hidden, wbit=mlpbit, abit=32),
+                nn.ReLU(),
+                nn.Dropout(dropout),
+                QLinear(mlp_hidden, feats, wbit=mlpbit, abit=mlpbit, relu=True),
+                nn.ReLU(),
+                nn.Dropout(dropout),
+            )
         else:
             self.aq1 = nn.Identity()
             self.aq2 = nn.Identity()
 
-        self.mlp = nn.Sequential(
-            QLinear(feats, mlp_hidden, wbit=mlpbit, abit=32),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            QLinear(mlp_hidden, feats, wbit=mlpbit, abit=mlpbit, relu=True),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-        )
+            self.mlp = nn.Sequential(
+                nn.Linear(feats, mlp_hidden),
+                nn.ReLU(),
+                nn.Dropout(dropout),
+                nn.Linear(mlp_hidden, feats),
+                nn.ReLU(),
+                nn.Dropout(dropout),
+            )
+
 
     def forward(self, x):
         xn = self.la1(x)
+        
         xq = self.aq1(xn)
         out = self.msa(xq) + x
 
@@ -70,6 +82,7 @@ class MultiHeadSelfAttention(nn.Module):
             self.qq = nn.Identity()
             self.kq = nn.Identity()
             self.vq = nn.Identity()
+            self.oq = nn.Identity()
 
             self.q = nn.Linear(feats, feats)
             self.k = nn.Linear(feats, feats)

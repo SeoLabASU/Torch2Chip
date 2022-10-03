@@ -33,10 +33,10 @@ def get_loader(args):
         ])
 
         trainset = datasets.CIFAR10(root=args.data_path, train=True, download=True, transform=train_transform)
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=2)
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=2, drop_last=True)
 
         testset = datasets.CIFAR10(root=args.data_path, train=False, download=True, transform=test_transform)
-        testloader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size, shuffle=False, num_workers=2)
+        testloader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size, shuffle=False, num_workers=2, drop_last=True)
         num_classes, img_size = 10, 32
     elif args.dataset == 'imagenet':
         mean = [0.485, 0.456, 0.406]

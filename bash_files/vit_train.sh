@@ -1,10 +1,10 @@
-PYTHON="/home/jmeng15/anaconda3/bin/python"
+PYTHON="/home/mengjian/anaconda3/bin/python"
 
 if [ ! -d "$DIRECTORY" ]; then
     mkdir ./save
 fi
 
-export CUDA_VISIBLE_DEVICES=1
+export CUDA_VISIBLE_DEVICES=0
 
 model=vit7
 msabit=32
@@ -21,9 +21,9 @@ hidden=384
 mlp_hidden=384
 
 dataset="cifar10"
-save_path="../save/baseline/${dataset}/VIT${num_layer}_${wbit}_lr${lr}_batch${batch_size}_${loss}loss_relu/"
+save_path="../save/baseline/${dataset}/VIT${num_layer}_${wbit}_lr${lr}_batch${batch_size}_${loss}loss_relu_bn/"
 log_file="vit_training.log"
-name="vit_training_${dataset}_w4a4_debug"
+name="vit_training_${dataset}"
 
 $PYTHON -W ignore ../main.py \
     --model ${model} \
